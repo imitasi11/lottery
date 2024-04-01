@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lottery System</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+    }
+
+    h1 {
+        margin-bottom: 20px;
+    }
+
+    #lotteryResults {
+        margin-top: 20px;
+    }
+</style>
+</head>
+<body>
+<h1>Lottery System</h1>
+<input type="file" id="excelFileInput" accept=".xlsx, .xls">
+<button id="drawButton" disabled>Draw Winners</button>
+<button id="shuffleButton" style="display:none;">Shuffle</button>
+<div id="lotteryResults"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.0/xlsx.full.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const excelFileInput = document.getElementById('excelFileInput');
+        const drawButton = document.getElementById('drawButton');
+        const shuffleButton = document.getElementById('shuffleButton');
+        const lotteryResults = document.getElementById('lotteryResults');
+        let groupLimits = {};
+
+        excelFileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                drawButton.removeAttribute('disabled');
+            }
+        });
+
+        drawButton.addEventListener('click', function() {
+            const file = excelFileInput.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const csvData = XLSX.utils.sheet_to_csv(worksheet);
+                processData(csvData);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        shuffleButton.addEventListener('click', function() {
+            if (winners.length > 0) {
+                processNextWinner();
+            } else {
+                alert("All winners have been revealed!");
+            }
+        });
+
+        function processData(csvData) {
+            const rows = csvData.split('\n');
+            const headerRow = rows.shift(); // Remove header row
+            const headerColumns = headerRow.split(',');
+
+            if (Object.keys(groupLimits).length === 0) {
+                headerColumns.forEach(column => {
+                    if (column.includes('Limit:')) {
+                        const [group, limit] = column.split('Limit:');
+                        groupLimits[group.trim()] = parseInt(limit.trim());
+                    }
+                });
+            }
+
+            entries = shuffle(rows.map(row => row.split(',')));
+
+            winners = [];
+            entries.forEach(entry => {
+                const username = entry[0];
+                const group = entry[1];
+                const higherChance = parseInt(entry[2]);
+
+                if (group in groupLimits && groupLimits[group] > 0) {
+                    if (Math.random() * 100 < higherChance) {
+                        winners.push({username: username, group: group});
+                        groupLimits[group]--;
+                    }
+                }
+            });
+
+            shuffleButton.style.display = 'block';
+        }
+
+        function processNextWinner() {
+            if (winners.length > 0) {
+                const winner = winners.shift();
+                lotteryResults.innerHTML += `<p>${winner.username} - ${winner.group}</p>`;
+            }
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+    });
+</script>
+</body>
+</html>
